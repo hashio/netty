@@ -19,6 +19,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufHolder;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.IllegalReferenceCountException;
 import io.netty.util.Recycler;
 import io.netty.util.Recycler.Handle;
 import io.netty.util.ReferenceCountUtil;
@@ -293,7 +294,11 @@ public final class ChannelOutboundBuffer {
 
         if (!e.cancelled) {
             // only release message, fail and decrement if it was not canceled before.
-            ReferenceCountUtil.safeRelease(msg);
+            if (cause instanceof IllegalReferenceCountException) {
+                // Do not call safe release. Because refCnt is already 0.
+            } else {
+                ReferenceCountUtil.safeRelease(msg);
+            }
 
             safeFail(promise, cause);
             decrementPendingOutboundBytes(size, false, notifyWritability);
